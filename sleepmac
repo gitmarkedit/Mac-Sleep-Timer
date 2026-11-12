@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""sleepmac — терминальный таймер сна для macOS с интерактивным TUI интерфейсом.
+
+Примеры запуска:
+  ./sleepmac              # Интерактивное меню с кнопками
+  ./sleepmac 30m          # Прямой запуск на 30 минут
+  ./sleepmac 1h           # Прямой запуск на 1 час
+  ./sleepmac 45           # 45 минут
+  ./sleepmac 10s --dry-run # Тестовый режим без фактического сна
+"""
+
+import argparse
+import sys
+import time
+
+from sleep_timer.config import Colors
+from sleep_timer.parser import parse_duration
+from sleep_timer.system import format_seconds, send_notification, sleep_now
+from sleep_timer.timer import SleepTimer
+from sleep_timer.tui import TerminalUI
+
+
+def run_headless(seconds: int, dry_run: bool = False) -> None:
+    """Неинтерактивный режим для пайпов и скриптов."""
+    timer = SleepTimer(seconds)
+    target_str = timer.target_time_str
+    mins = seconds // 60
+
+    print(f"⏳ Таймер сна запущен: {format_seconds(seconds)} (до {target_str})")
+    send_notification(
+        title="🌙 Таймер сна запущен",
+        message=f"Mac перейдет в спящий режим в {target_str} (через {mins} мин.)",
+    )
+
+    try:
+        while not timer.tick():
+            rem = timer.remaining_int
+            pbar = timer.make_progress_bar(width=20)
+            sys.stdout.write(f"\rОсталось: {format_seconds(rem)} {pbar} {timer.progress_percent:.0f}%")
+            sys.stdout.flush()
+            time.sleep(1.0)
+        print("\n🌙 Время вышло! Перевод в режим сна...")
+        sleep_now(dry_run=dry_run)
+    except KeyboardInterrupt:
+        print("\n🛑 Таймер сна отменен пользователем.")
+        sys.exit(0)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="sleepmac",
+        description="🌙 Интерактивный терминальный таймер сна для macOS",
+        epilog="Примеры: sleepmac (меню), sleepmac 30m, sleepmac 1h, sleepmac 1.5h, sleepmac 45",
+    )
+    parser.add_argument(
+        "duration",
+        nargs="?",
+        default=None,
+        help="Время до сна (например: 30m, 1h, 45, 1.5h, 1:30). Если не указано, откроется интерактивное меню.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        "-d",
+        action="store_true",
+        help="Тестовый режим: таймер отсчитывает время, но команда pmset sleepnow не выполняется.",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Запуск в простом текстовом режиме без TUI.",
+    )
+
+    args = parser.parse_args()
+
+    # Определение количества секунд
+    seconds = None
+    if args.duration:
+        try:
+            seconds = parse_duration(args.duration)
+        except ValueError as err:
+            print(f"{Colors.BOLD}{Colors.BRIGHT_RED}❌ Ошибка: {err}{Colors.RESET}")
+            sys.exit(1)
+
+    # Проверка интерактивности
+    is_interactive = sys.stdin.isatty() and sys.stdout.isatty() and not args.headless
+
+    if not is_interactive:
+        if seconds is None:
+            # Значение по умолчанию для неинтерактивного режима — 30 минут
+            seconds = 30 * 60
+        run_headless(seconds, dry_run=args.dry_run)
+        return
+
+    # Интерактивный TUI режим
+    ui = TerminalUI(dry_run=args.dry_run)
+
+    try:
+        if seconds is None:
+            seconds = ui.run_menu()
+            if seconds is None:
+                # Пользователь вышел из меню (Q / Esc)
+                print(f"{Colors.DIM}Выход из программы.{Colors.RESET}")
+                sys.exit(0)
+
+        ui.run_countdown(seconds)
+    except KeyboardInterrupt:
+        ui.exit_raw()
+        print(f"\n{Colors.BRIGHT_RED}🛑 Таймер сна отменен.{Colors.RESET}")
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
