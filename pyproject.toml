@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mac-sleep-timer"
+version = "1.0.0"
+description = "Интерактивный терминальный таймер сна для macOS"
+readme = "README.md"
+authors = [{ name = "Mark" }]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = ["macos", "sleep", "timer", "tui", "cli", "terminal"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: MacOS X",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.scripts]
+sleepmac = "sleep_timer.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/gitmarkedit/Mac-Sleep-Timer"
+Repository = "https://github.com/gitmarkedit/Mac-Sleep-Timer.git"
+Issues = "https://github.com/gitmarkedit/Mac-Sleep-Timer/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sleep_timer*"]
